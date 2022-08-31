@@ -3,7 +3,7 @@ package problems
 import machine.IntCodeMachine
 import utils.day15.Direction
 import utils.day15.move
-import utils.day15.toAbbr
+
 import problems.util.InputReader
 import java.lang.Exception
 import java.lang.Integer.max
@@ -23,23 +23,41 @@ fun main() {
         visited.add(origin.move(it))
     }
 
+    var runs = 0
+    var lastOK = listOf<Direction>()
+
     var goal: Pair<Int, Int> = Pair(0, 0)
     var ans = -1
+
+    var position = origin
+
     while (queue.isNotEmpty()) {
         val path = queue.removeFirst()
 
-        var position = origin
-        for (direction in path.dropLast(1)) {
-            machine.feedInputsAndRun(direction.raw)
+        val (_, toReverse, toApply) = utils.day15.partition(path, lastOK)
 
-            if (machine.output.last().toInt() != 1) {
-                throw Exception("unexpected result when traversing path")
+        for (directionToReverse in toReverse.reversed()) {
+            val reversedDirection = directionToReverse.reverse()
+            machine.feedInputsAndRun(reversedDirection.raw)
+            runs += 1
+
+            position = position.move(reversedDirection)
+        }
+
+        for (direction in toApply.dropLast(1)) {
+            machine.feedInputsAndRun(direction.raw)
+            runs += 1
+
+            val machineResult = machine.output.last().toInt()
+            if (machineResult != 1) {
+                throw Exception("unexpected result $machineResult when traversing path")
             }
 
             position = position.move(direction)
         }
-        val lastDirection = path.last()
+        val lastDirection = toApply.last()
         machine.feedInputsAndRun(lastDirection.raw)
+        runs += 1
 
         when (val output = machine.output.last().toInt()) {
             0 -> { // hit wall
@@ -51,11 +69,23 @@ fun main() {
                         queue.addLast(path + it)
                     }
 
-                for (direction in path.dropLast(1).reversed()) {
+                for (direction in toApply.dropLast(1).reversed()) {
                     machine.feedInputsAndRun(direction.reverse().raw)
+                    runs += 1
+
+                    position = position.move(direction.reverse())
+                }
+
+                for (direction in toReverse) {
+                    machine.feedInputsAndRun(direction.raw)
+                    runs += 1
+
+                    position = position.move(direction)
                 }
             }
             1 -> { // move OK
+                lastOK = path
+
                 position = position.move(lastDirection)
 
                 Direction
@@ -65,10 +95,6 @@ fun main() {
                         visited.add(position.move(it))
                         queue.addLast(path + it)
                     }
-
-                for (direction in path.reversed()) {
-                    machine.feedInputsAndRun(direction.reverse().raw)
-                }
             }
             2 -> { // found
                 position = position.move(lastDirection)
@@ -80,7 +106,10 @@ fun main() {
             else -> { throw Exception("unexpected output $output") }
         }
     }
+    println("performed $runs runs")
     println("part 1 answer: $ans")
+
+    // TODO Path Diffing for part 2
 
     val queue2 = ArrayDeque<List<Direction>>()
     val visited2 = mutableSetOf(goal)
