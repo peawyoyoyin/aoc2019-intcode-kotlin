@@ -14,6 +14,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    implementation("org.processing:core:3.3.6")
 }
 
 tasks.test {
