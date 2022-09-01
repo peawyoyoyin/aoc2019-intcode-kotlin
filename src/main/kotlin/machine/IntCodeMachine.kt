@@ -35,6 +35,11 @@ class IntCodeMachine(
     private var instructionPointer = 0
     private var relativeBase = 0
 
+    // ascii-compatibility functions
+    fun flushOutput() = output.clear()
+    fun ASCIIOutput(): List<Char> = output.map { it.toInt().toChar() }
+    fun feedASCIIStringAndRun(asciiString: String) = feedInputsAndRun(asciiString.map { it.code })
+
     private fun resolveParameter(value: BigInteger, mode: ParameterMode): BigInteger {
         return when (mode) {
             ParameterMode.POSITION -> memory.getValue(value.toInt())
@@ -79,11 +84,16 @@ class IntCodeMachine(
     }
 
     fun feedInputsAndRun(vararg inputs: Int) {
-        feedInputsAndRun(*inputs.map { BigInteger.valueOf(it.toLong()) }.toTypedArray())
+        feedInputsAndRun(inputs.toList())
     }
 
     fun feedInputsAndRun(vararg inputs: BigInteger) {
         input.addAll(inputs.toList())
+        run()
+    }
+
+    private fun feedInputsAndRun(inputs: List<Int>) {
+        input.addAll(inputs.map { BigInteger.valueOf(it.toLong()) })
         run()
     }
 
