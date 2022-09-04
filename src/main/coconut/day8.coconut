@@ -1,0 +1,30 @@
+with open('../resources/inputs/day8.txt') as f:
+  raw = f.readlines()[0]
+
+# input parameters
+w = 25
+h = 6
+
+def chunk(size, string):
+  i = 0
+  while i < len(string):
+    yield string[i:i+size]
+    i += size
+
+layers = raw |> chunk$(w*h) ..> list
+
+least_zeroes = layers |> min$(?, key = .count('0'))
+print('part 1 ans: ', least_zeroes.count('1') * least_zeroes.count('2'))
+
+layers_2d = layers |> map$(chunk$(w) ..> list) ..> list
+
+def combine_pixel('2', p) = p
+addpattern def combine_pixel(x, p) = x
+
+def combine_row(rows) = zip(*rows) |> map$(reduce$(combine_pixel)) ..> list
+combined = zip(*layers_2d) |> map$(combine_row) ..> list
+
+part2_ans = combined |> map$(''.join) ..> '\n'.join ..> .replace('0', ' ')
+
+print('part 2 ans:')
+print(part2_ans)
