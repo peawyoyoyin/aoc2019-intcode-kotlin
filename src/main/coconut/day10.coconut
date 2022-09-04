@@ -1,0 +1,94 @@
+with open('../resources/inputs/day10.txt') as f:
+  raw = f.readlines()
+
+from math import gcd, atan, pi
+from itertools import product, chain
+
+from collections import defaultdict
+
+
+rows = raw |> map$(x -> x.strip() |> enumerate) ..> enumerate
+def flatten(t) = (t[0], *t[1])
+
+with_index = rows |> map$(p -> product([p[0]], p[1])) ..> map$(map$(flatten)) ..*> chain ..> list
+
+asteroids = with_index |> filter$(t -> t[2] == '#') ..> map$(.[:-1]) ..> list
+
+def reduce_pair(pair):
+  a, b = pair
+  g = gcd(a, b)
+  return (a//g, b//g)
+
+ans = -1
+
+station = (-1, -1)
+
+for asteroid in asteroids:
+  ay, ax = asteroid
+  other_asteroids = set(asteroids) - set([asteroid])
+  
+  slopes = set()
+
+  for other_asteroid in other_asteroids:
+    oy, ox = other_asteroid
+    slope = (oy-ay, ox-ax) |> reduce_pair
+    slope |> slopes.add
+  
+  if len(slopes) > ans:
+    ans = len(slopes)
+    station = asteroid
+
+print('part 1 ans:', ans)
+
+sy, sx = station
+slope_map = defaultdict(-> [])
+for asteroid in asteroids:
+  if asteroid == station:
+    continue
+  ay, ax = asteroid
+  slope = (ay-sy, ax-sx) |> reduce_pair
+  asteroid |> slope_map[slope].append
+
+def slope_to_theta(slope):
+  dy, dx = slope
+  if dy == 0:
+    if dx > 0:
+      return 0
+    else:
+      return pi
+  
+  theta = atan(dx/dy)
+
+  if dx < 0 and dy > 0:
+    return theta
+  
+  if dx < 0 and dy < 0:
+    return (3*pi/2)-theta
+
+  if dx > 0 and dy < 0:
+    return (pi/2)+theta
+
+  return (pi/2) - theta
+
+def distance(source, destination):
+  sy, sx = source
+  ty, tx = destination
+
+  return abs(ty-sy) + abs(tx-sx)
+
+sorted_by_slope_and_dist = slope_map.items() |> sorted$(?,key=p -> slope_to_theta(p[0])) ..> map$( p -> (p[0], p[1] |> sorted$(?, key=distance$(station))) ) ..> map$( p -> p[1] )
+
+popped = 0
+list_index = 0
+
+while popped < 200:
+  if len(sorted_by_slope_and_dist[list_index]) > 0:
+    asteroid_destroyed = sorted_by_slope_and_dist[list_index].pop(0)
+    popped += 1
+  
+  list_index += 1
+  list_index = list_index % len(sorted_by_slope_and_dist)
+
+ady, adx = asteroid_destroyed
+ans2 = adx*100 + ady
+print('part 2 ans:', ans2)
