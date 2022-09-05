@@ -1,0 +1,78 @@
+import re
+from math import lcm
+
+with open('../resources/inputs/day12.txt') as f:
+  raw = f.readlines() |> map$(.strip())
+
+pattern = r'<x=(\-?\d+), y=(\-?\d+), z=(\-?\d+)>'
+
+def extract_coords(line) = line |> re.match$(pattern) ..> .groups() ..> map$(int) ..> list
+
+moons = raw |> map$(extract_coords) ..> list
+velocities = range(4) |> map$( -> [0]*3) ..> list
+
+def sum_abs(vec3) = vec3 |> map$(abs) ..> sum
+def potential_energy(position) = position |> sum_abs
+def kinetic_energy(velocity) = velocity |> sum_abs
+def total_energy(position, velocity) = potential_energy(position) * kinetic_energy(velocity)
+def find_total_system_energy(positions, velocities) = (positions, velocities) |*> zip |> map$(p -> p |*>total_energy) ..> sum
+
+def find_next_state(positions, velocities):
+  new_positions = positions |> map$(.copy()) ..> list
+  new_velocities = velocities |> map$(.copy()) ..> list
+
+  for axis in range(3):
+    for index, moon in enumerate(new_positions):
+      magnitude_moon = moon[axis]
+
+      for index2, other_moon in enumerate(new_positions):
+        if index == index2:
+          continue
+
+        magnitude_other_moon = other_moon[axis]
+
+        diff_vel = 0
+        if magnitude_moon < magnitude_other_moon:
+          diff_vel = 1
+        elif magnitude_moon > magnitude_other_moon:
+          diff_vel = -1
+
+        new_velocities[index][axis] += diff_vel
+
+  # apply velocity
+  for index, moon in enumerate(new_positions):
+    for axis in range(3):
+      moon[axis] += new_velocities[index][axis]
+
+  return (new_positions, new_velocities)
+
+cycle = 0
+moons1, velocities1 = moons, velocities
+while cycle < 1000:
+  moons1, velocities1 = find_next_state(moons, velocities)
+  cycle += 1
+ans1 = (moons1, velocities1) |*> find_total_system_energy
+
+print('part 1 ans:', ans1)
+
+# we checked solution for part 2; did not have answer
+
+def hash_state(moons) = moons |*> zip ..> tuple
+
+x_states, y_states, z_states = set(), set(), set()
+
+moons2, velocities2 = moons, velocities
+while True:
+  x_state, y_state, z_state = (moons2 |> hash_state, velocities2 |> hash_state) |*> zip ..> tuple
+
+  if x_state in x_states and y_state in y_states and z_state in z_states:
+    break 
+
+  x_state |> x_states.add
+  y_state |> y_states.add
+  z_state |> z_states.add
+  
+  moons2, velocities2 = find_next_state(moons2, velocities2)
+
+ans2 = (len(x_states), len(y_states), len(z_states)) |> reduce$(lcm)
+print('part 2 ans:', ans2)
