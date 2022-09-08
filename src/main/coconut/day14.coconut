@@ -1,0 +1,122 @@
+import math
+from collections import defaultdict
+
+from functools import cache
+
+with open('../resources/inputs/day14.txt') as f:
+  raw = f.readlines() |> map$(.strip())
+
+data Pile(material, quantity):
+  def __repr__(self):
+    return f'{self.quantity} {self.material}'
+
+  def __mul__(self, num):
+    return Pile(self.material, self.quantity*num)
+
+data Reaction(reactants, products):
+  def __repr__(self):
+    return f'R({self.reactants |> map$(repr) |> ", ".join} => {self.products})'
+
+  def __mul__(self, num):
+    return Reaction(self.reactants |> map$(l -> l*num), self.products*num)
+
+def parse_pile(pile):
+  quantity, material = pile.split()
+  return Pile(material, quantity |> int)
+
+def parse_reaction(reaction):
+  reactants, product = reaction.split(' => ')
+  parsed_reactants = reactants.split(', ') |> map$(parse_pile) ..> list
+  parsed_product = product |> parse_pile
+
+  return Reaction(parsed_reactants, parsed_product)
+
+reactions = raw |> map$(parse_reaction) ..> list
+
+reactions_adj_list = dict()
+reactions_map = dict()
+for reaction in reactions:
+  reactions_map[reaction.products.material] = reaction
+  reactions_adj_list[reaction.products.material] = set(reaction.reactants |> map$(.material))
+
+all_materials = set(['ORE']) | set(reactions_adj_list.keys())
+
+# topological sort
+topological_order = []
+
+while len(all_materials) > 0:
+  candidate = None
+  for material in all_materials:
+    if material not in reactions_adj_list:
+      candidate = material
+      break
+  topological_order.append(candidate)
+  all_materials.remove(candidate)
+
+  for item in reactions_adj_list.values():
+    if material in item:
+      item.remove(candidate)
+
+  for key in list(reactions_adj_list.keys()):
+    if len(reactions_adj_list[key]) == 0:
+      reactions_adj_list.pop(key)
+
+reverse_indexed_topo_order = { value: index for index, value in enumerate(topological_order) }
+
+leftovers = defaultdict( -> 0)
+ore_required = 0
+
+def try_craft(material, quantity):
+  global leftovers
+  global ore_required
+
+  if material == 'ORE':
+    ore_required += quantity
+    return
+
+  if leftovers[material] >= quantity:
+    # print('need', material, quantity, 'use leftover')
+    leftovers[material] -= quantity
+    return
+
+  # use leftover
+  # print('using', leftovers[material], 'left over, crafting', quantity - leftovers[material], 'more')
+  quantity -= leftovers[material]
+  leftovers[material] = 0
+
+  reaction_needed = reactions_map[material]
+  iterations_needed = math.ceil(quantity / reaction_needed.products.quantity) |> int
+  multiplied_reaction = reaction_needed * iterations_needed
+
+  leftover = (reaction_needed.products.quantity * iterations_needed) - quantity
+  leftovers[material] += leftover
+
+  # print('need', material, quantity, 'crafting', reaction_needed * iterations_needed, 'leftover', leftover, 'total', leftovers[material])
+  for reactant in multiplied_reaction.reactants |> sorted$(?, key=lambda r: reverse_indexed_topo_order[r.material], reverse=True):
+    try_craft(reactant.material, reactant.quantity)
+
+def ore_required_to_craft(material, quantity):
+  global leftovers
+  global ore_required
+  
+  leftovers = defaultdict( -> 0)
+  ore_required = 0
+
+  try_craft(material, quantity)
+
+  return ore_required
+
+ans1 = ore_required_to_craft('FUEL', 1)
+print('part 1 ans:', ans1)
+
+left, right = int(1e12 // ans1), int(1e12)
+
+while left < right:
+  mid = (left + right) // 2
+
+  if ore_required_to_craft('FUEL', mid) >= 1e12:
+    right = mid
+  else:
+    left = mid+1
+
+print('part 2 ans:', left-1)
